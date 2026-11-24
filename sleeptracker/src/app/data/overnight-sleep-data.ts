@@ -1,8 +1,8 @@
 import { SleepData } from './sleep-data';
 
 export class OvernightSleepData extends SleepData {
-	private sleepStart:Date;
-	private sleepEnd:Date;
+	public sleepStart:Date;
+	public sleepEnd:Date;
 
 	constructor(sleepStart:Date, sleepEnd:Date) {
 		super();
@@ -23,5 +23,21 @@ export class OvernightSleepData extends SleepData {
 
 	override dateString():string {
 		return "Night of " + this.sleepStart.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+	}
+
+	toJSON() {
+		return {
+			id: this.id,
+			loggedAt: this.loggedAt.toISOString(),
+			sleepStart: this.sleepStart.toISOString(),
+			sleepEnd: this.sleepEnd.toISOString()
+		};
+	}
+
+	static fromJSON(obj: any): OvernightSleepData {
+		const d = new OvernightSleepData(new Date(obj.sleepStart), new Date(obj.sleepEnd));
+		d.id = obj.id;
+		d.loggedAt = new Date(obj.loggedAt);
+		return d;
 	}
 }

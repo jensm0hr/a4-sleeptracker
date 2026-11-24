@@ -1,0 +1,93 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Log</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-header>
+  <ion-toolbar>
+    <ion-segment [(ngModel)]="selectedForm">
+      <ion-segment-button value="overnight">
+        <ion-label>Overnight</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="sleepiness">
+        <ion-label>Sleepiness</ion-label>
+      </ion-segment-button>
+    </ion-segment>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <!-- Log overnight sleep -->
+  @if (selectedForm === 'overnight') {
+    <ion-list>
+      <ion-list-header>Log last night's sleep</ion-list-header>
+
+      <ion-item>
+        <ion-label>Went to bed</ion-label>
+        <ion-datetime-button datetime="bedtime-picker"></ion-datetime-button>
+      </ion-item>
+      <ion-item>
+        <ion-label>Woke up</ion-label>
+        <ion-datetime-button datetime="wake-picker"></ion-datetime-button>
+      </ion-item>
+
+      @if (!overnightValid) {
+        <ion-item>
+          <ion-note color="danger">Wake time must be after bedtime.</ion-note>
+        </ion-item>
+      }
+
+      @if (durationWarning) {
+        <ion-item>
+          <ion-note color="warning">{{ durationWarning }}</ion-note>
+        </ion-item>
+      }
+
+      <ion-button expand="block" [disabled]="!overnightValid" (click)="saveOvernight()">
+        Save sleep
+      </ion-button>
+    </ion-list>
+  }
+
+  <ion-modal [keepContentsMounted]="true">
+    <ng-template>
+      <ion-datetime id="bedtime-picker" [(ngModel)]="bedtime" [max]="maxTime"></ion-datetime>
+    </ng-template>
+  </ion-modal>
+  <ion-modal [keepContentsMounted]="true">
+    <ng-template>
+      <ion-datetime id="wake-picker" [(ngModel)]="wakeTime" [max]="maxTime"></ion-datetime>
+    </ng-template>
+  </ion-modal>
+
+  <!-- Log sleepiness -->
+  @if (selectedForm === 'sleepiness') {
+    <ion-list>
+      <ion-list-header>How sleepy are you?</ion-list-header>
+
+      <ion-item>
+        <ion-select label="Standford scale" placeholder="Pick 1-7"
+                    interface="action-sheet" [(ngModel)]="sleepinessValue">
+          @for (opt of scaleOptions; track opt.value) {
+            <ion-select-option [value]="opt.value">{{ opt.value}}: {{ opt.label }}</ion-select-option>
+          }
+        </ion-select>
+      </ion-item>
+      <ion-item>
+        <ion-label>Time</ion-label>
+        <ion-datetime-button datetime="sleepy-picker"></ion-datetime-button>
+      </ion-item>
+
+      <ion-button expand="block" [disabled]="!sleepinessValid" (click)="saveSleepiness()">
+        Save sleepiness
+      </ion-button>
+    </ion-list>
+  }
+
+  <ion-modal [keepContentsMounted]="true">
+    <ng-template>
+      <ion-datetime id="sleepy-picker" [(ngModel)]="sleepinessTime" [max]="maxTime"></ion-datetime>
+    </ng-template>
+  </ion-modal>
+</ion-content>

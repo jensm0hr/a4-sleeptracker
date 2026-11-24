@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { Storage } from '@ionic/storage-angular';
 import { SleepData } from '../data/sleep-data';
 import { OvernightSleepData } from '../data/overnight-sleep-data';
 import { StanfordSleepinessData } from '../data/stanford-sleepiness-data';
@@ -7,44 +8,72 @@ import { StanfordSleepinessData } from '../data/stanford-sleepiness-data';
   providedIn: 'root'
 })
 export class SleepService {
-	private static LoadDefaultData:boolean = true;
 	public static AllSleepData:SleepData[] = [];
 	public static AllOvernightData:OvernightSleepData[] = [];
 	public static AllSleepinessData:StanfordSleepinessData[] = [];
 
-	constructor() {
-		if(SleepService.LoadDefaultData) {
-			this.addDefaultData();
-		SleepService.LoadDefaultData = false;
-	}
+	private storageReady: Promise<void>;
+
+	constructor(private storage: Storage) {
+		this.storageReady = this.init();
 	}
 
-	private addDefaultData() {
-		var goToBed = new Date();
-		goToBed.setDate(goToBed.getDate() - 1); //set to yesterday
-		goToBed.setHours(1, 3, 0); //1:03am
-		var wakeUp = new Date();
-		wakeUp.setTime(goToBed.getTime() + 8 * 60 * 60 * 1000); //Sleep for exactly eight hours, waking up at 9:03am
-		this.logOvernightData(new OvernightSleepData(goToBed, wakeUp)); // add that person was asleep 1am-9am yesterday
-		var sleepinessDate = new Date();
-		sleepinessDate.setDate(sleepinessDate.getDate() - 1); //set to yesterday
-		sleepinessDate.setHours(14, 38, 0); //2:38pm
-		this.logSleepinessData(new StanfordSleepinessData(4, sleepinessDate)); // add sleepiness at 2pm
-		goToBed = new Date();
-		goToBed.setDate(goToBed.getDate() - 1); //set to yesterday
-		goToBed.setHours(23, 11, 0); //11:11pm
-		wakeUp = new Date();
-		wakeUp.setTime(goToBed.getTime() + 9 * 60 * 60 * 1000); //Sleep for exactly nine hours
-		this.logOvernightData(new OvernightSleepData(goToBed, wakeUp));
+	private async init() {
+		await this.storage.create();
+		const overnight = (await this.storage.get('overnight')) ?? [];
+		const sleepiness = (await this.storage.get('sleepiness')) ?? [];
+
+		SleepService.AllOvernightData = overnight.map(OvernightSleepData.fromJSON);
+		SleepService.AllSleepinessData = sleepiness.map(StanfordSleepinessData.fromJSON);
+		this.rebuildAllData();
 	}
 
-	public logOvernightData(sleepData:OvernightSleepData) {
-		SleepService.AllSleepData.push(sleepData);
+	private rebuildAllData() {
+		SleepService.AllSleepData = [
+			...SleepService.AllOvernightData,
+			...SleepService.AllSleepinessData
+		].sort((a, b) => b.loggedAt.getTime() - a.loggedAt.getTime());
+	}
+
+	private async persist() {
+		await this.storageReady;
+		await this.storage.set('overnight', SleepService.AllOvernightData.map(d => d.toJSON()));
+		await this.storage.set('sleepiness', SleepService.AllSleepinessData.map(d => d.toJSON()));
+	}
+
+	public async logOvernightData(sleepData:OvernightSleepData) {
 		SleepService.AllOvernightData.push(sleepData);
+		this.rebuildAllData();
+		await this.persist();
 	}
 
-	public logSleepinessData(sleepData:StanfordSleepinessData) {
-		SleepService.AllSleepData.push(sleepData);
+	public async logSleepinessData(sleepData:StanfordSleepinessData) {
 		SleepService.AllSleepinessData.push(sleepData);
+		this.rebuildAllData();
+		await this.persist();
+	}
+
+	public async deleteLog(id: string) {
+		SleepService.AllOvernightData = SleepService.AllOvernightData.filter(d => d.id !== id);
+		SleepService.AllSleepinessData = SleepService.AllSleepinessData.filter(d => d.id !== id);
+		this.rebuildAllData();
+		await this.persist();
+	}
+
+	public async restoreLog(log: SleepData) {
+		if (log instanceof OvernightSleepData) {
+			SleepService.AllOvernightData.push(log);
+		}
+		else if (log instanceof StanfordSleepinessData) {
+			SleepService.AllSleepinessData.push(log);
+		}
+		this.rebuildAllData();
+		await this.persist();
+	}
+
+	public findOvernightForWakeDate(wake: Date): OvernightSleepData | undefined {
+		return SleepService.AllOvernightData.find(
+			d => d.sleepEnd.toDateString() === wake.toDateString()
+		);
 	}
 }
